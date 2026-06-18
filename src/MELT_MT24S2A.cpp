@@ -5,7 +5,7 @@
  * @date 2024
  */
 
-#include "../include/MELT_MT24S2A.h"
+#include "MELT_MT24S2A.h"
 #include <string.h>
 #include <stdio.h>
 

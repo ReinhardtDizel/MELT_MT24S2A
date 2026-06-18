@@ -6,25 +6,25 @@
 
 // ---- Автовыбор HAL по платформе ----
 #if defined(ARDUINO)
-    #include "../src/hal/LCD_HAL_Arduino.h" 
+    #include "LCD_HAL_Arduino.h"
     typedef LCD_HAL_Arduino LCD_HAL_Platform;
 #elif defined(__AVR__) && !defined(ARDUINO)
-    #include "../src/hal/LCD_HAL_AVR.h" 
+    #include "LCD_HAL_AVR.h" 
     typedef LCD_HAL_AVR LCD_HAL_Platform;
 #elif defined(STM32) || defined(PLATFORM_STM32)
-    #include "../src/hal/LCD_HAL_STM32.h" 
+    #include "LCD_HAL_STM32.h" 
     typedef LCD_HAL_STM32 LCD_HAL_Platform;
 #elif defined(ESP8266)
-    #include "../src/hal/LCD_HAL_ESP.h"
+    #include "LCD_HAL_ESP.h"
     typedef LCD_HAL_ESP LCD_HAL_Platform;
 #elif defined(ESP32)
-    #include "../src/hal/LCD_HAL_ESP.h" 
+    #include "LCD_HAL_ESP.h" 
     typedef LCD_HAL_ESP LCD_HAL_Platform;
 #else
     #error "Неподдерживаемая платформа!"
 #endif
 
-#include "../src/hal/LCD_HAL.h"
+#include "LCD_HAL.h"
 
 // ---- Константы команд (HD44780) ----
 #define LCD_CLEAR_DISPLAY       0x01
