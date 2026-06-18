@@ -1,0 +1,16 @@
+{
+    "configurations": [
+        {
+            "name": "PlatformIO",
+            "includePath": [
+                "${workspaceFolder}/**",
+                "${workspaceFolder}/../../**"   // поднимаемся к корню библиотеки
+            ],
+            "compilerPath": "",
+            "cStandard": "gnu11",
+            "cppStandard": "gnu++11",
+            "intelliSenseMode": "gcc-x64"
+        }
+    ],
+    "version": 4
+}

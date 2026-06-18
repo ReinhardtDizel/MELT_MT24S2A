@@ -20,15 +20,16 @@ const uint8_t BTN1 = A4, BTN2 = A5, BTN3 = A3;
 LCD_HAL_Platform hal;                     // LCD_HAL_Arduino (определён в MELT_MT24S2A.h)
 MELT_MT24S2A lcd(&hal, RS, EN, D0, D1, D2, D3, D4, D5, D6, D7);
 
-// ---------- Класс PWMOutput (точная копия из вашего проекта) ----------
+// ---------- Класс PWMOutput (с исправленным порядком инициализации) ----------
 class PWMOutput {
   uint8_t _pin;
   float _minFreq, _maxFreq, _currentFreq, _targetFreq, _maxStepPerSec;
   unsigned long _lastUpdate;
 public:
   PWMOutput(uint8_t pin, float minFreq, float maxFreq, float maxStepPerSec)
-    : _pin(pin), _minFreq(minFreq), _maxFreq(maxFreq), _maxStepPerSec(maxStepPerSec),
-      _currentFreq(minFreq), _targetFreq(minFreq), _lastUpdate(0) {}
+    : _pin(pin), _minFreq(minFreq), _maxFreq(maxFreq),
+      _currentFreq(minFreq), _targetFreq(minFreq), _maxStepPerSec(maxStepPerSec),
+      _lastUpdate(0) {}
   void begin() {
     pinMode(_pin, OUTPUT);
     analogWrite(_pin, 0);
@@ -68,7 +69,7 @@ float currentFreq = 0.0;
 float targetFreq = 0.0;
 float voltage = 0.0;
 
-// ---------- Кнопки с защитой от дребезга (как в проекте, но проще) ----------
+// ---------- Кнопки с защитой от дребезга ----------
 class DebouncedButton {
   uint8_t pin;
   bool lastState;
@@ -95,7 +96,7 @@ DebouncedButton btn1(BTN1), btn2(BTN2), btn3(BTN3);
 void printFloat2(float value) {
   int whole = (int)value;
   int frac = (int)((value - whole) * 100 + 0.5);
-  if (frac < 0) frac = -frac;  // на всякий случай
+  if (frac < 0) frac = -frac;
   lcd.printInt(whole);
   lcd.write('.');
   if (frac < 10) lcd.write('0');
@@ -122,17 +123,17 @@ void setup() {
 
 // ---------- LOOP ----------
 void loop() {
-  // Обработка кнопок (как в вашем тесте)
-  if (btn1.pressed()) {             // Кнопка 1 – сброс в 0 Гц
+  // Обработка кнопок
+  if (btn1.pressed()) {
     targetFreq = 0.0;
     driveOutput.setFrequency(targetFreq);
   }
-  if (btn2.pressed()) {             // Кнопка 2 – уменьшить на 0.1 Гц
+  if (btn2.pressed()) {
     targetFreq -= 0.1;
     if (targetFreq < 0.0) targetFreq = 0.0;
     driveOutput.setFrequency(targetFreq);
   }
-  if (btn3.pressed()) {             // Кнопка 3 – увеличить на 0.1 Гц
+  if (btn3.pressed()) {
     targetFreq += 0.1;
     if (targetFreq > 50.0) targetFreq = 50.0;
     driveOutput.setFrequency(targetFreq);
@@ -142,7 +143,7 @@ void loop() {
   driveOutput.update();
   currentFreq = driveOutput.getCurrentFrequency();
 
-  // Вывод информации на дисплей (аналог вашего старого кода)
+  // Вывод информации на дисплей
   lcd.setCursor(0, 0);
   lcd.print("F=");
   printFloat2(currentFreq);
@@ -153,7 +154,6 @@ void loop() {
   printFloat2(targetFreq);
   lcd.print("  ");
 
-  // Напряжение вычисляем так же, как в классе PWMOutput
   voltage = (currentFreq - 0.0) / 50.0 * 10.0;
   lcd.setCursor(0, 1);
   lcd.print("U=");
