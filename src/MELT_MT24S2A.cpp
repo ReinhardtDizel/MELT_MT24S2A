@@ -1,17 +1,12 @@
-/**
- * @file MELT_MT24S2A.cpp
- * @brief Реализация библиотеки для LCD дисплея MT24S2A
- * @version 2.0.0
- * @date 2024
- */
-
 #include "MELT_MT24S2A.h"
 #include <string.h>
 #include <stdio.h>
 
-// ========================================
-// Конструкторы
-// ========================================
+// Автоматический HAL для платформы (создаётся один раз)
+static LCD_HAL_Platform _internal_hal;
+
+// ========== Конструкторы ==========
+
 MELT_MT24S2A::MELT_MT24S2A(LCD_HAL* hal, uint8_t rs, uint8_t enable,
                            uint8_t d0, uint8_t d1, uint8_t d2, uint8_t d3,
                            uint8_t d4, uint8_t d5, uint8_t d6, uint8_t d7)
@@ -38,11 +33,22 @@ MELT_MT24S2A::MELT_MT24S2A(LCD_HAL* hal, uint8_t i2c_address)
       _8bit_mode(false), _i2c_mode(true), _i2c_address(i2c_address)
 {}
 
+// *** НОВЫЙ КОНСТРУКТОР (без HAL) ***
+MELT_MT24S2A::MELT_MT24S2A(uint8_t rs, uint8_t enable,
+                           uint8_t d0, uint8_t d1, uint8_t d2, uint8_t d3,
+                           uint8_t d4, uint8_t d5, uint8_t d6, uint8_t d7)
+    : _hal(&_internal_hal), _rs_pin(rs), _enable_pin(enable),
+      _8bit_mode(true), _i2c_mode(false), _i2c_address(0)
+{
+    _data_pins[0] = d0; _data_pins[1] = d1;
+    _data_pins[2] = d2; _data_pins[3] = d3;
+    _data_pins[4] = d4; _data_pins[5] = d5;
+    _data_pins[6] = d6; _data_pins[7] = d7;
+}
+
 MELT_MT24S2A::~MELT_MT24S2A() {}
 
-// ========================================
-// Инициализация
-// ========================================
+// ========== Инициализация ==========
 void MELT_MT24S2A::begin(uint8_t cols, uint8_t rows) {
     _cols = cols; _rows = rows;
 
@@ -89,9 +95,7 @@ void MELT_MT24S2A::begin(uint8_t cols, uint8_t rows) {
     command(LCD_ENTRY_MODE_SET | _displaymode);
 }
 
-// ========================================
-// Базовые операции
-// ========================================
+// ========== Базовые методы ==========
 void MELT_MT24S2A::clear() { command(LCD_CLEAR_DISPLAY); _hal->delayMilliseconds(2); }
 void MELT_MT24S2A::home()  { command(LCD_RETURN_HOME); _hal->delayMilliseconds(2); }
 
@@ -113,9 +117,7 @@ void MELT_MT24S2A::print(int number) {
     print(buf);
 }
 
-// ========================================
-// Управление дисплеем
-// ========================================
+// ========== Управление ==========
 void MELT_MT24S2A::noDisplay()    { _displaycontrol &= ~LCD_DISPLAY_ON; command(LCD_DISPLAY_CONTROL | _displaycontrol); }
 void MELT_MT24S2A::display()      { _displaycontrol |= LCD_DISPLAY_ON;  command(LCD_DISPLAY_CONTROL | _displaycontrol); }
 void MELT_MT24S2A::noCursor()     { _displaycontrol &= ~LCD_CURSOR_ON; command(LCD_DISPLAY_CONTROL | _displaycontrol); }
@@ -135,9 +137,7 @@ void MELT_MT24S2A::createChar(uint8_t location, uint8_t charmap[8]) {
     for (int i = 0; i < 8; i++) write(charmap[i]);
 }
 
-// ========================================
-// Низкоуровневые (внутренние)
-// ========================================
+// ========== Внутренние методы ==========
 void MELT_MT24S2A::command(uint8_t cmd) { send(cmd, false); }
 
 void MELT_MT24S2A::send(uint8_t value, bool isData) {
@@ -178,9 +178,7 @@ void MELT_MT24S2A::pulseEnable() {
     _hal->delayMicroseconds(100);
 }
 
-// ========================================
-// Русский текст (UTF-8 → знакогенератор MT24S2A)
-// ========================================
+// ========== Русский текст (UTF-8 → знакогенератор МЭЛТ) ==========
 uint8_t MELT_MT24S2A::utf8_to_hd44780(const char*& text) {
     uint8_t c = (uint8_t)*text;
     if (c < 0x80) {
@@ -273,9 +271,7 @@ void MELT_MT24S2A::printRus(const char* text) {
     }
 }
 
-// ========================================
-// Высокоуровневый вывод (как в старом коде)
-// ========================================
+// ========== Проверенные методы вывода ==========
 void MELT_MT24S2A::printInt(int32_t num) {
     char buf[12];
     snprintf(buf, sizeof(buf), "%ld", num);
