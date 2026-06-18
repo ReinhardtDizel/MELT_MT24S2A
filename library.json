@@ -1,0 +1,92 @@
+{
+  "name": "MELT_MT24S2A",
+  "version": "2.0.0",
+  "description": "Universal LCD library for MT24S2A display. Supports Arduino, AVR, STM32, ESP8266, ESP32. Includes UTF-8 Russian characters support and high-level print functions.",
+  "keywords": [
+    "lcd",
+    "display",
+    "hd44780",
+    "mt24s2a",
+    "arduino",
+    "stm32",
+    "esp32",
+    "esp8266",
+    "avr",
+    "russian",
+    "utf8",
+    "i2c",
+    "parallel"
+  ],
+  "authors": [
+    {
+      "name": "Reinhardt Michael",
+      "email": "dizel882@gmail.com",
+      "url": "https://github.com/yourusername",
+      "maintainer": true
+    }
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yourusername/MELT_MT24S2A.git"
+  },
+  "license": "MIT",
+  "homepage": "https://github.com/yourusername/MELT_MT24S2A",
+  "documentation": "https://github.com/yourusername/MELT_MT24S2A/blob/main/README.md",
+  "frameworks": [
+    "arduino",
+    "stm32cube",
+    "espidf"
+  ],
+  "platforms": [
+    "atmelavr",
+    "ststm32",
+    "espressif8266",
+    "espressif32"
+  ],
+  "headers": [
+    "MELT_MT24S2A.h"
+  ],
+  "export": {
+    "include": [
+      "include",
+      "src"
+    ],
+    "exclude": [
+      "examples",
+      "test",
+      ".git",
+      ".gitignore"
+    ]
+  },
+  "examples": [
+    {
+      "name": "Basic Arduino",
+      "base": "examples/arduino_basic",
+      "files": [
+        "examples/arduino_basic/src/main.cpp"
+      ]
+    },
+    {
+      "name": "STM32 Example",
+      "base": "examples/stm32_basic",
+      "files": [
+        "examples/stm32_basic/src/main.cpp"
+      ]
+    },
+    {
+      "name": "ESP32 Example",
+      "base": "examples/esp32_basic",
+      "files": [
+        "examples/esp32_basic/src/main.cpp"
+      ]
+    }
+  ],
+  "dependencies": [],
+  "build": {
+    "flags": [
+      "-Wall",
+      "-Wextra"
+    ],
+    "libArchive": true
+  }
+}
