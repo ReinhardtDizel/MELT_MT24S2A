@@ -104,6 +104,7 @@ public:
     void printIntBlink(int32_t num, int cursorPos, bool show);
     void printVdBlink(int32_t vd_milli, int cursorPos, bool show);
     void clearField(int width);
+    unsigned long getMillis() { return millis(); }
 
     const char* getPlatformName();
 
