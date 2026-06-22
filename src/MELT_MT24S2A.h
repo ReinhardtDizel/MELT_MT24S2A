@@ -2,10 +2,11 @@
  * @file MELT_MT24S2A.h
  * @brief Универсальная библиотека для LCD дисплея MT24S2A
  * @author Reinhardt Michael
- * @version 2.0.2
+ * @version 2.0.3
  * @date 2024
  * 
- * Полностью автономная версия: не требует внешних HAL-файлов.
+ * Полностью автономная версия: не требует Arduino.
+ * Пользователь должен предоставить реализацию LCD_HAL.
  */
 
 #ifndef MELT_MT24S2A_H
@@ -14,25 +15,28 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-// ---- Встроенный HAL для Arduino (без дополнительных файлов) ----
-#if defined(ARDUINO)
-    #include <Arduino.h>
-    class LCD_HAL_Internal {
-    public:
-        void pinModeOutput(uint8_t pin) { pinMode(pin, OUTPUT); }
-        void digitalWrite(uint8_t pin, bool value) { ::digitalWrite(pin, value ? HIGH : LOW); }
-        void delayMicroseconds(uint32_t us) { ::delayMicroseconds(us); }
-        void delayMilliseconds(uint32_t ms) { ::delay(ms); }
-        unsigned long millis() { return ::millis(); }
-        void i2cInit(uint8_t) {}   // заглушка
-        void i2cWrite(uint8_t) {}  // заглушка
-        const char* getPlatformName() { return "Arduino"; }
-    };
-#else
-    #error "Только Arduino поддерживается в этой версии"
-#endif
+// ---- Абстрактный HAL (пользователь должен реализовать) ----
+class LCD_HAL {
+public:
+    virtual ~LCD_HAL() {}
+    virtual void pinModeOutput(uint8_t pin) = 0;
+    virtual void pinModeInput(uint8_t pin) = 0;
+    virtual void pinModeInputPullup(uint8_t pin) = 0;
+    virtual void digitalWrite(uint8_t pin, bool value) = 0;
+    virtual bool digitalRead(uint8_t pin) = 0;
+    virtual void delayMicroseconds(uint32_t us) = 0;
+    virtual void delayMilliseconds(uint32_t ms) = 0;
+    virtual void i2cInit(uint8_t address) { (void)address; }
+    virtual void i2cWrite(uint8_t data) { (void)data; }
+    virtual uint8_t i2cRead() { return 0; }
+    virtual void i2cWriteBytes(const uint8_t* data, uint8_t length) { (void)data; (void)length; }
+    virtual void spiInit() {}
+    virtual uint8_t spiTransfer(uint8_t data) { (void)data; return 0; }
+    virtual const char* getPlatformName() = 0;
+    virtual void init() {}
+};
 
-// ---- Команды LCD ----
+// ---- Команды LCD (без изменений) ----
 #define LCD_CLEAR_DISPLAY       0x01
 #define LCD_RETURN_HOME         0x02
 #define LCD_ENTRY_MODE_SET      0x04
@@ -68,24 +72,20 @@
 
 class MELT_MT24S2A {
 public:
-    // Конструкторы (все содержат rw)
-    MELT_MT24S2A(LCD_HAL_Internal* hal, uint8_t rs, uint8_t rw, uint8_t enable,
+    // Конструкторы с внешним HAL
+    MELT_MT24S2A(LCD_HAL* hal, uint8_t rs, uint8_t rw, uint8_t enable,
                  uint8_t d0, uint8_t d1, uint8_t d2, uint8_t d3,
                  uint8_t d4, uint8_t d5, uint8_t d6, uint8_t d7);
-    MELT_MT24S2A(LCD_HAL_Internal* hal, uint8_t rs, uint8_t rw, uint8_t enable,
+    MELT_MT24S2A(LCD_HAL* hal, uint8_t rs, uint8_t rw, uint8_t enable,
                  uint8_t d4, uint8_t d5, uint8_t d6, uint8_t d7);
-    MELT_MT24S2A(LCD_HAL_Internal* hal, uint8_t i2c_address);
+    MELT_MT24S2A(LCD_HAL* hal, uint8_t i2c_address);
 
-    // Простой конструктор (без HAL) – автоматически создаёт внутренний HAL
-    MELT_MT24S2A(uint8_t rs, uint8_t rw, uint8_t enable,
-                 uint8_t d0, uint8_t d1, uint8_t d2, uint8_t d3,
-                 uint8_t d4, uint8_t d5, uint8_t d6, uint8_t d7);
-    MELT_MT24S2A(uint8_t rs, uint8_t rw, uint8_t enable,
-                 uint8_t d4, uint8_t d5, uint8_t d6, uint8_t d7);
+    // Простые конструкторы (без HAL) – создают внутренний HAL (только для Arduino-совместимых платформ)
+    // Здесь мы их убираем, чтобы не было зависимостей. Если нужно, можно оставить, но тогда нужен #ifdef ARDUINO.
 
     ~MELT_MT24S2A();
 
-    // Базовые методы
+    // Базовые методы (те же)
     void begin(uint8_t cols, uint8_t rows);
     void clear();
     void home();
@@ -94,7 +94,6 @@ public:
     void print(const char* text);
     void print(int number);
 
-    // Управление дисплеем
     void noDisplay();
     void display();
     void noCursor();
@@ -109,7 +108,6 @@ public:
     void noAutoscroll();
     void createChar(uint8_t location, uint8_t charmap[8]);
 
-    // Высокоуровневые методы
     void printRus(const char* text);
     void printInt(int32_t num);
     void printIntBlink(int32_t num, int cursorPos, bool show);
@@ -117,11 +115,10 @@ public:
     void clearField(int width);
 
     unsigned long getMillis();
-
     const char* getPlatformName();
 
 private:
-    LCD_HAL_Internal* _hal;
+    LCD_HAL* _hal;
     uint8_t _rs_pin, _rw_pin, _enable_pin;
     uint8_t _data_pins[8];
     uint8_t _cols, _rows;
