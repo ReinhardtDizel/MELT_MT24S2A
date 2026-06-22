@@ -14,27 +14,7 @@
 
 #include <stdint.h>
 #include <stdbool.h>
-
-// ---- Абстрактный HAL (пользователь должен реализовать) ----
-class LCD_HAL {
-public:
-    virtual ~LCD_HAL() {}
-    virtual void pinModeOutput(uint8_t pin) = 0;
-    virtual void pinModeInput(uint8_t pin) = 0;
-    virtual void pinModeInputPullup(uint8_t pin) = 0;
-    virtual void digitalWrite(uint8_t pin, bool value) = 0;
-    virtual bool digitalRead(uint8_t pin) = 0;
-    virtual void delayMicroseconds(uint32_t us) = 0;
-    virtual void delayMilliseconds(uint32_t ms) = 0;
-    virtual void i2cInit(uint8_t address) { (void)address; }
-    virtual void i2cWrite(uint8_t data) { (void)data; }
-    virtual uint8_t i2cRead() { return 0; }
-    virtual void i2cWriteBytes(const uint8_t* data, uint8_t length) { (void)data; (void)length; }
-    virtual void spiInit() {}
-    virtual uint8_t spiTransfer(uint8_t data) { (void)data; return 0; }
-    virtual const char* getPlatformName() = 0;
-    virtual void init() {}
-};
+#include "LCD_HAL.h"  
 
 // ---- Команды LCD (без изменений) ----
 #define LCD_CLEAR_DISPLAY       0x01

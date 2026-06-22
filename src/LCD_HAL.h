@@ -144,6 +144,11 @@ public:
     virtual const char* getPlatformName() = 0;
     
     /**
+     * @brief millis
+     */
+    virtual unsigned long millis() = 0;
+
+    /**
      * @brief Инициализация HAL (если требуется)
      */
     virtual void init() {}
