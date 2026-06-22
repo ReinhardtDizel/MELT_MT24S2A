@@ -2,15 +2,14 @@
 #include <string.h>
 #include <stdio.h>
 
-// Автоматический HAL для платформы (создаётся один раз)
+// ---- Внутренний HAL для простого конструктора ----
 static LCD_HAL_Platform _internal_hal;
 
-// ========== Конструкторы ==========
-
-MELT_MT24S2A::MELT_MT24S2A(LCD_HAL* hal, uint8_t rs, uint8_t enable,
+// ---- Конструкторы ----
+MELT_MT24S2A::MELT_MT24S2A(LCD_HAL* hal, uint8_t rs, uint8_t rw, uint8_t enable,
                            uint8_t d0, uint8_t d1, uint8_t d2, uint8_t d3,
                            uint8_t d4, uint8_t d5, uint8_t d6, uint8_t d7)
-    : _hal(hal), _rs_pin(rs), _enable_pin(enable),
+    : _hal(hal), _rs_pin(rs), _rw_pin(rw), _enable_pin(enable),
       _8bit_mode(true), _i2c_mode(false), _i2c_address(0)
 {
     _data_pins[0] = d0; _data_pins[1] = d1;
@@ -19,9 +18,9 @@ MELT_MT24S2A::MELT_MT24S2A(LCD_HAL* hal, uint8_t rs, uint8_t enable,
     _data_pins[6] = d6; _data_pins[7] = d7;
 }
 
-MELT_MT24S2A::MELT_MT24S2A(LCD_HAL* hal, uint8_t rs, uint8_t enable,
+MELT_MT24S2A::MELT_MT24S2A(LCD_HAL* hal, uint8_t rs, uint8_t rw, uint8_t enable,
                            uint8_t d4, uint8_t d5, uint8_t d6, uint8_t d7)
-    : _hal(hal), _rs_pin(rs), _enable_pin(enable),
+    : _hal(hal), _rs_pin(rs), _rw_pin(rw), _enable_pin(enable),
       _8bit_mode(false), _i2c_mode(false), _i2c_address(0)
 {
     _data_pins[4] = d4; _data_pins[5] = d5;
@@ -29,15 +28,15 @@ MELT_MT24S2A::MELT_MT24S2A(LCD_HAL* hal, uint8_t rs, uint8_t enable,
 }
 
 MELT_MT24S2A::MELT_MT24S2A(LCD_HAL* hal, uint8_t i2c_address)
-    : _hal(hal), _rs_pin(0), _enable_pin(0),
+    : _hal(hal), _rs_pin(0), _rw_pin(0), _enable_pin(0),
       _8bit_mode(false), _i2c_mode(true), _i2c_address(i2c_address)
 {}
 
-// *** НОВЫЙ КОНСТРУКТОР (без HAL) ***
-MELT_MT24S2A::MELT_MT24S2A(uint8_t rs, uint8_t enable,
+// Простые конструкторы (без явного HAL)
+MELT_MT24S2A::MELT_MT24S2A(uint8_t rs, uint8_t rw, uint8_t enable,
                            uint8_t d0, uint8_t d1, uint8_t d2, uint8_t d3,
                            uint8_t d4, uint8_t d5, uint8_t d6, uint8_t d7)
-    : _hal(&_internal_hal), _rs_pin(rs), _enable_pin(enable),
+    : _hal(&_internal_hal), _rs_pin(rs), _rw_pin(rw), _enable_pin(enable),
       _8bit_mode(true), _i2c_mode(false), _i2c_address(0)
 {
     _data_pins[0] = d0; _data_pins[1] = d1;
@@ -46,9 +45,18 @@ MELT_MT24S2A::MELT_MT24S2A(uint8_t rs, uint8_t enable,
     _data_pins[6] = d6; _data_pins[7] = d7;
 }
 
+MELT_MT24S2A::MELT_MT24S2A(uint8_t rs, uint8_t rw, uint8_t enable,
+                           uint8_t d4, uint8_t d5, uint8_t d6, uint8_t d7)
+    : _hal(&_internal_hal), _rs_pin(rs), _rw_pin(rw), _enable_pin(enable),
+      _8bit_mode(false), _i2c_mode(false), _i2c_address(0)
+{
+    _data_pins[4] = d4; _data_pins[5] = d5;
+    _data_pins[6] = d6; _data_pins[7] = d7;
+}
+
 MELT_MT24S2A::~MELT_MT24S2A() {}
 
-// ========== Инициализация ==========
+// ---- Инициализация ----
 void MELT_MT24S2A::begin(uint8_t cols, uint8_t rows) {
     _cols = cols; _rows = rows;
 
@@ -57,6 +65,7 @@ void MELT_MT24S2A::begin(uint8_t cols, uint8_t rows) {
         _displayfunction = LCD_4BIT_MODE | LCD_2LINE | LCD_5x8_DOTS;
     } else {
         _hal->pinModeOutput(_rs_pin);
+        _hal->pinModeOutput(_rw_pin);
         _hal->pinModeOutput(_enable_pin);
         if (_8bit_mode) {
             for (int i = 0; i < 8; i++) _hal->pinModeOutput(_data_pins[i]);
@@ -69,6 +78,7 @@ void MELT_MT24S2A::begin(uint8_t cols, uint8_t rows) {
 
     _hal->delayMilliseconds(50);
     _hal->digitalWrite(_rs_pin, false);
+    _hal->digitalWrite(_rw_pin, LOW);
     _hal->digitalWrite(_enable_pin, false);
 
     if (_8bit_mode) {
@@ -95,7 +105,7 @@ void MELT_MT24S2A::begin(uint8_t cols, uint8_t rows) {
     command(LCD_ENTRY_MODE_SET | _displaymode);
 }
 
-// ========== Базовые методы ==========
+// ---- Базовые методы ----
 void MELT_MT24S2A::clear() { command(LCD_CLEAR_DISPLAY); _hal->delayMilliseconds(2); }
 void MELT_MT24S2A::home()  { command(LCD_RETURN_HOME); _hal->delayMilliseconds(2); }
 
@@ -106,18 +116,14 @@ void MELT_MT24S2A::setCursor(uint8_t col, uint8_t row) {
 }
 
 void MELT_MT24S2A::write(uint8_t c) { send(c, true); }
-
-void MELT_MT24S2A::print(const char* text) {
-    while (*text) write(*text++);
-}
-
+void MELT_MT24S2A::print(const char* text) { while (*text) write(*text++); }
 void MELT_MT24S2A::print(int number) {
     char buf[12];
     snprintf(buf, sizeof(buf), "%d", number);
     print(buf);
 }
 
-// ========== Управление ==========
+// ---- Управление дисплеем ----
 void MELT_MT24S2A::noDisplay()    { _displaycontrol &= ~LCD_DISPLAY_ON; command(LCD_DISPLAY_CONTROL | _displaycontrol); }
 void MELT_MT24S2A::display()      { _displaycontrol |= LCD_DISPLAY_ON;  command(LCD_DISPLAY_CONTROL | _displaycontrol); }
 void MELT_MT24S2A::noCursor()     { _displaycontrol &= ~LCD_CURSOR_ON; command(LCD_DISPLAY_CONTROL | _displaycontrol); }
@@ -137,7 +143,7 @@ void MELT_MT24S2A::createChar(uint8_t location, uint8_t charmap[8]) {
     for (int i = 0; i < 8; i++) write(charmap[i]);
 }
 
-// ========== Внутренние методы ==========
+// ---- Внутренние методы ----
 void MELT_MT24S2A::command(uint8_t cmd) { send(cmd, false); }
 
 void MELT_MT24S2A::send(uint8_t value, bool isData) {
@@ -145,20 +151,19 @@ void MELT_MT24S2A::send(uint8_t value, bool isData) {
         uint8_t data = value;
         if (isData) data |= 0x01;
         _hal->i2cWrite(data);
-    } else {
-        _hal->digitalWrite(_rs_pin, isData);
-        if (_8bit_mode) {
-            for (int i = 0; i < 8; i++) {
-                _hal->digitalWrite(_data_pins[i], (value >> i) & 0x01);
-            }
-            pulseEnable();
-        } else {
-            write4bits(value >> 4);
-            write4bits(value & 0x0F);
-        }
+        return;
     }
-    if (!isData) {
-        _hal->delayMicroseconds(2000);
+
+    _hal->digitalWrite(_rs_pin, isData);
+    _hal->digitalWrite(_rw_pin, LOW);          // всегда запись
+    if (_8bit_mode) {
+        for (int i = 0; i < 8; i++) {
+            _hal->digitalWrite(_data_pins[i], (value >> i) & 0x01);
+        }
+        pulseEnable();
+    } else {
+        write4bits(value >> 4);
+        write4bits(value & 0x0F);
     }
 }
 
@@ -178,84 +183,48 @@ void MELT_MT24S2A::pulseEnable() {
     _hal->delayMicroseconds(100);
 }
 
-// ========== Русский текст (UTF-8 → знакогенератор МЭЛТ) ==========
+// ---- Высокоуровневые методы ----
 uint8_t MELT_MT24S2A::utf8_to_hd44780(const char*& text) {
     uint8_t c = (uint8_t)*text;
-    if (c < 0x80) {
-        text++;
-        return c;
-    }
+    if (c < 0x80) { text++; return c; }
     if (c == 0xD0 || c == 0xD1) {
         uint8_t c2 = (uint8_t)*(text + 1);
         uint16_t ucode = (c == 0xD0) ? 0x0410 + (c2 - 0x90) : 0x0420 + (c2 - 0x80);
         text += 2;
         switch (ucode) {
-            case 0x0410: return 0x41; // А
-            case 0x0430: return 0x61; // а
-            case 0x0411: return 0xA0; // Б
-            case 0x0431: return 0xB2; // б
-            case 0x0412: return 0x42; // В
-            case 0x0432: return 0xB3; // в
-            case 0x0413: return 0xA1; // Г
-            case 0x0433: return 0xB4; // г
-            case 0x0414: return 0xE0; // Д
-            case 0x0434: return 0xE3; // д
-            case 0x0415: return 0x45; // Е
-            case 0x0435: return 0x65; // е
-            case 0x0401: return 0xA2; // Ё
-            case 0x0451: return 0xB5; // ё
-            case 0x0416: return 0xA3; // Ж
-            case 0x0436: return 0xB6; // ж
-            case 0x0417: return 0xA4; // З
-            case 0x0437: return 0xB7; // з
-            case 0x0418: return 0xA5; // И
-            case 0x0438: return 0xB8; // и
-            case 0x0419: return 0xA6; // Й
-            case 0x0439: return 0xB9; // й
-            case 0x041A: return 0x4B; // К
-            case 0x043A: return 0xBA; // к
-            case 0x041B: return 0xA7; // Л
-            case 0x043B: return 0xBB; // л
-            case 0x041C: return 0x4D; // М
-            case 0x043C: return 0xBC; // м
-            case 0x041D: return 0x48; // Н
-            case 0x043D: return 0xBD; // н
-            case 0x041E: return 0x4F; // О
-            case 0x043E: return 0x6F; // о
-            case 0x041F: return 0xA8; // П
-            case 0x043F: return 0xBE; // п
-            case 0x0420: return 0x50; // Р
-            case 0x0440: return 0x70; // р
-            case 0x0421: return 0x43; // С
-            case 0x0441: return 0x63; // с
-            case 0x0422: return 0x54; // Т
-            case 0x0442: return 0xBF; // т
-            case 0x0423: return 0xA9; // У
-            case 0x0443: return 0x79; // у
-            case 0x0424: return 0xAA; // Ф
-            case 0x0444: return 0xE4; // ф
-            case 0x0425: return 0x58; // Х
-            case 0x0445: return 0x78; // х
-            case 0x0426: return 0xE1; // Ц
-            case 0x0446: return 0xE5; // ц
-            case 0x0427: return 0xAB; // Ч
-            case 0x0447: return 0xC0; // ч
-            case 0x0428: return 0xAC; // Ш
-            case 0x0448: return 0xC1; // ш
-            case 0x0429: return 0xE2; // Щ
-            case 0x0449: return 0xE6; // щ
-            case 0x042A: return 0xAD; // Ъ
-            case 0x044A: return 0xC2; // ъ
-            case 0x042B: return 0xAE; // Ы
-            case 0x044B: return 0xC3; // ы
-            case 0x042C: return 0x62; // Ь
-            case 0x044C: return 0xC4; // ь
-            case 0x042D: return 0xAF; // Э
-            case 0x044D: return 0xC5; // э
-            case 0x042E: return 0xB0; // Ю
-            case 0x044E: return 0xC6; // ю
-            case 0x042F: return 0xB1; // Я
-            case 0x044F: return 0xC7; // я
+            case 0x0410: return 0x41; case 0x0430: return 0x61;
+            case 0x0411: return 0xA0; case 0x0431: return 0xB2;
+            case 0x0412: return 0x42; case 0x0432: return 0xB3;
+            case 0x0413: return 0xA1; case 0x0433: return 0xB4;
+            case 0x0414: return 0xE0; case 0x0434: return 0xE3;
+            case 0x0415: return 0x45; case 0x0435: return 0x65;
+            case 0x0401: return 0xA2; case 0x0451: return 0xB5;
+            case 0x0416: return 0xA3; case 0x0436: return 0xB6;
+            case 0x0417: return 0xA4; case 0x0437: return 0xB7;
+            case 0x0418: return 0xA5; case 0x0438: return 0xB8;
+            case 0x0419: return 0xA6; case 0x0439: return 0xB9;
+            case 0x041A: return 0x4B; case 0x043A: return 0xBA;
+            case 0x041B: return 0xA7; case 0x043B: return 0xBB;
+            case 0x041C: return 0x4D; case 0x043C: return 0xBC;
+            case 0x041D: return 0x48; case 0x043D: return 0xBD;
+            case 0x041E: return 0x4F; case 0x043E: return 0x6F;
+            case 0x041F: return 0xA8; case 0x043F: return 0xBE;
+            case 0x0420: return 0x50; case 0x0440: return 0x70;
+            case 0x0421: return 0x43; case 0x0441: return 0x63;
+            case 0x0422: return 0x54; case 0x0442: return 0xBF;
+            case 0x0423: return 0xA9; case 0x0443: return 0x79;
+            case 0x0424: return 0xAA; case 0x0444: return 0xE4;
+            case 0x0425: return 0x58; case 0x0445: return 0x78;
+            case 0x0426: return 0xE1; case 0x0446: return 0xE5;
+            case 0x0427: return 0xAB; case 0x0447: return 0xC0;
+            case 0x0428: return 0xAC; case 0x0448: return 0xC1;
+            case 0x0429: return 0xE2; case 0x0449: return 0xE6;
+            case 0x042A: return 0xAD; case 0x044A: return 0xC2;
+            case 0x042B: return 0xAE; case 0x044B: return 0xC3;
+            case 0x042C: return 0x62; case 0x044C: return 0xC4;
+            case 0x042D: return 0xAF; case 0x044D: return 0xC5;
+            case 0x042E: return 0xB0; case 0x044E: return 0xC6;
+            case 0x042F: return 0xB1; case 0x044F: return 0xC7;
             default: return '?';
         }
     }
@@ -271,7 +240,6 @@ void MELT_MT24S2A::printRus(const char* text) {
     }
 }
 
-// ========== Проверенные методы вывода ==========
 void MELT_MT24S2A::printInt(int32_t num) {
     char buf[12];
     snprintf(buf, sizeof(buf), "%ld", num);
@@ -284,27 +252,28 @@ void MELT_MT24S2A::printIntBlink(int32_t num, int cursorPos, bool show) {
     int len = strlen(buf);
     if (cursorPos >= len) cursorPos = len - 1;
     for (int i = 0; i < len; i++) {
-        if (i == cursorPos && !show) write(' ');
-        else write(buf[i]);
+        write(i == cursorPos && !show ? ' ' : buf[i]);
     }
 }
 
 void MELT_MT24S2A::printVdBlink(int32_t vd_milli, int cursorPos, bool show) {
     int whole = vd_milli / 1000;
     int frac  = vd_milli % 1000;
-    if (frac < 0) frac = -frac;
     char buf[8];
     snprintf(buf, sizeof(buf), "%d.%03d", whole, frac);
     int len = strlen(buf);
     if (cursorPos >= len) cursorPos = len - 1;
     for (int i = 0; i < len; i++) {
-        if (i == cursorPos && !show) write(' ');
-        else write(buf[i]);
+        write(i == cursorPos && !show ? ' ' : buf[i]);
     }
 }
 
 void MELT_MT24S2A::clearField(int width) {
     for (int i = 0; i < width; i++) write(' ');
+}
+
+unsigned long MELT_MT24S2A::getMillis() {
+    return _hal->millis();
 }
 
 const char* MELT_MT24S2A::getPlatformName() {
