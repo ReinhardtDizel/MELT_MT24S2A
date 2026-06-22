@@ -2,11 +2,11 @@
 #include <string.h>
 #include <stdio.h>
 
-// ---- Внутренний HAL для простого конструктора ----
-static LCD_HAL_Platform _internal_hal;
+// ---- Внутренний HAL (один на всю библиотеку) ----
+static LCD_HAL_Internal _internal_hal;
 
 // ---- Конструкторы ----
-MELT_MT24S2A::MELT_MT24S2A(LCD_HAL* hal, uint8_t rs, uint8_t rw, uint8_t enable,
+MELT_MT24S2A::MELT_MT24S2A(LCD_HAL_Internal* hal, uint8_t rs, uint8_t rw, uint8_t enable,
                            uint8_t d0, uint8_t d1, uint8_t d2, uint8_t d3,
                            uint8_t d4, uint8_t d5, uint8_t d6, uint8_t d7)
     : _hal(hal), _rs_pin(rs), _rw_pin(rw), _enable_pin(enable),
@@ -18,7 +18,7 @@ MELT_MT24S2A::MELT_MT24S2A(LCD_HAL* hal, uint8_t rs, uint8_t rw, uint8_t enable,
     _data_pins[6] = d6; _data_pins[7] = d7;
 }
 
-MELT_MT24S2A::MELT_MT24S2A(LCD_HAL* hal, uint8_t rs, uint8_t rw, uint8_t enable,
+MELT_MT24S2A::MELT_MT24S2A(LCD_HAL_Internal* hal, uint8_t rs, uint8_t rw, uint8_t enable,
                            uint8_t d4, uint8_t d5, uint8_t d6, uint8_t d7)
     : _hal(hal), _rs_pin(rs), _rw_pin(rw), _enable_pin(enable),
       _8bit_mode(false), _i2c_mode(false), _i2c_address(0)
@@ -27,7 +27,7 @@ MELT_MT24S2A::MELT_MT24S2A(LCD_HAL* hal, uint8_t rs, uint8_t rw, uint8_t enable,
     _data_pins[6] = d6; _data_pins[7] = d7;
 }
 
-MELT_MT24S2A::MELT_MT24S2A(LCD_HAL* hal, uint8_t i2c_address)
+MELT_MT24S2A::MELT_MT24S2A(LCD_HAL_Internal* hal, uint8_t i2c_address)
     : _hal(hal), _rs_pin(0), _rw_pin(0), _enable_pin(0),
       _8bit_mode(false), _i2c_mode(true), _i2c_address(i2c_address)
 {}
