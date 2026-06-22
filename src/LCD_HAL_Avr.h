@@ -14,6 +14,8 @@
 #include <avr/io.h>
 #include <util/delay.h>
 
+extern unsigned long millis();
+
 /**
  * @class LCD_HAL_Avr
  * @brief Реализация HAL для AVR с прямым доступом к портам
@@ -77,6 +79,10 @@ public:
 
     void delayMilliseconds(uint32_t ms) override {
         while (ms--) _delay_ms(1);
+    }
+    
+    unsigned long millis() override {
+        return ::millis();
     }
 
     // ========================================
