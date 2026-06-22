@@ -2,11 +2,10 @@
  * @file MELT_MT24S2A.h
  * @brief Универсальная библиотека для LCD дисплея MT24S2A
  * @author Reinhardt Michael
- * @version 2.0.1
+ * @version 2.0.2
  * @date 2024
  * 
- * Поддерживаемые платформы: Arduino, AVR, STM32, ESP8266, ESP32
- * Добавлена поддержка пина RW, автовыбор HAL, getMillis()
+ * Полностью автономная версия: не требует внешних HAL-файлов.
  */
 
 #ifndef MELT_MT24S2A_H
@@ -15,27 +14,23 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-// ---- Автовыбор HAL ----
+// ---- Встроенный HAL для Arduino (без дополнительных файлов) ----
 #if defined(ARDUINO)
-    #include "src/hal/LCD_HAL_Arduino.h"
-    typedef LCD_HAL_Arduino LCD_HAL_Platform;
-#elif defined(__AVR__) && !defined(ARDUINO)
-    #include "src/hal/LCD_HAL_AVR.h"
-    typedef LCD_HAL_AVR LCD_HAL_Platform;
-#elif defined(STM32) || defined(PLATFORM_STM32)
-    #include "src/hal/LCD_HAL_STM32.h"
-    typedef LCD_HAL_STM32 LCD_HAL_Platform;
-#elif defined(ESP8266)
-    #include "src/hal/LCD_HAL_ESP.h"
-    typedef LCD_HAL_ESP LCD_HAL_Platform;
-#elif defined(ESP32)
-    #include "src/hal/LCD_HAL_ESP.h"
-    typedef LCD_HAL_ESP LCD_HAL_Platform;
+    #include <Arduino.h>
+    class LCD_HAL_Internal {
+    public:
+        void pinModeOutput(uint8_t pin) { pinMode(pin, OUTPUT); }
+        void digitalWrite(uint8_t pin, bool value) { ::digitalWrite(pin, value ? HIGH : LOW); }
+        void delayMicroseconds(uint32_t us) { ::delayMicroseconds(us); }
+        void delayMilliseconds(uint32_t ms) { ::delay(ms); }
+        unsigned long millis() { return ::millis(); }
+        void i2cInit(uint8_t) {}   // заглушка
+        void i2cWrite(uint8_t) {}  // заглушка
+        const char* getPlatformName() { return "Arduino"; }
+    };
 #else
-    #error "Неподдерживаемая платформа!"
+    #error "Только Arduino поддерживается в этой версии"
 #endif
-
-#include "src/hal/LCD_HAL.h"
 
 // ---- Команды LCD ----
 #define LCD_CLEAR_DISPLAY       0x01
@@ -74,12 +69,12 @@
 class MELT_MT24S2A {
 public:
     // Конструкторы (все содержат rw)
-    MELT_MT24S2A(LCD_HAL* hal, uint8_t rs, uint8_t rw, uint8_t enable,
+    MELT_MT24S2A(LCD_HAL_Internal* hal, uint8_t rs, uint8_t rw, uint8_t enable,
                  uint8_t d0, uint8_t d1, uint8_t d2, uint8_t d3,
                  uint8_t d4, uint8_t d5, uint8_t d6, uint8_t d7);
-    MELT_MT24S2A(LCD_HAL* hal, uint8_t rs, uint8_t rw, uint8_t enable,
+    MELT_MT24S2A(LCD_HAL_Internal* hal, uint8_t rs, uint8_t rw, uint8_t enable,
                  uint8_t d4, uint8_t d5, uint8_t d6, uint8_t d7);
-    MELT_MT24S2A(LCD_HAL* hal, uint8_t i2c_address);
+    MELT_MT24S2A(LCD_HAL_Internal* hal, uint8_t i2c_address);
 
     // Простой конструктор (без HAL) – автоматически создаёт внутренний HAL
     MELT_MT24S2A(uint8_t rs, uint8_t rw, uint8_t enable,
@@ -126,7 +121,7 @@ public:
     const char* getPlatformName();
 
 private:
-    LCD_HAL* _hal;
+    LCD_HAL_Internal* _hal;
     uint8_t _rs_pin, _rw_pin, _enable_pin;
     uint8_t _data_pins[8];
     uint8_t _cols, _rows;
