@@ -1,9 +1,9 @@
 /**
  * @file LCD_HAL_Arduino.h
  * @brief HAL реализация для платформы Arduino
- * @author Your Name
+ * @author Рейнгардт Михаил Петрович
  * @version 1.0.0
- * @date 2024
+ * @date 2026
  */
 
 #ifndef LCD_HAL_ARDUINO_H
