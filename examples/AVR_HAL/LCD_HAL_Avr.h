@@ -1,15 +1,58 @@
+/**
+ * @file LCD_HAL_Avr.h
+ * @brief HAL реализация для AVR (ATmega1284) с прямым доступом к регистрам
+ * @author Рейнгардт Михаил Петрович
+ * @version 1.0.0
+ * @date 2026
+ *
+ * Нумерация пинов (соответствует вашей схеме):
+ *   1-8   → PORTB (бит 0..7)
+ *   14-21 → PORTD (бит 0..7)
+ *   22-29 → PORTC (бит 0..7)
+ * (остальные пины не поддерживаются)
+ *
+ * Использует собственный таймер (Timer0) для millis().
+ */
+
 #ifndef LCD_HAL_AVR_H
 #define LCD_HAL_AVR_H
 
 #include "LCD_HAL.h"
 #include <avr/io.h>
+#include <avr/interrupt.h>
 #include <util/delay.h>
+
+// ---- Собственная реализация millis() на Timer0 ----
+static volatile uint32_t _millis_counter = 0;
+
+ISR(TIMER0_COMPA_vect) {
+    _millis_counter++;  // каждую 1 мс
+}
+
+static void initMillisTimer() {
+    // Настройка Timer0 на режим CTC, прерывание по совпадению с OCR0A
+    TCCR0A = (1 << WGM01); // CTC mode
+    OCR0A = 249;           // для частоты 16 МГц и делителя 64: 16e6/64/250 = 1000 Гц -> 1 мс
+    TCCR0B = (1 << CS01) | (1 << CS00); // prescaler 64
+    TIMSK0 |= (1 << OCIE0A); // разрешить прерывание по совпадению
+    sei();                   // глобально разрешить прерывания
+}
+
+static unsigned long getMillis() {
+    unsigned long m;
+    cli();
+    m = _millis_counter;
+    sei();
+    return m;
+}
+// ------------------------------------------------
 
 class LCD_HAL_Avr : public LCD_HAL {
 public:
     LCD_HAL_Avr() {}
     ~LCD_HAL_Avr() {}
 
+    // ---- GPIO ----
     void pinModeOutput(uint8_t pin) override {
         _setPinMode(pin, true);
     }
@@ -36,24 +79,20 @@ public:
         return false;
     }
 
+    // ---- Задержки ----
     void delayMicroseconds(uint32_t us) override {
-        // Исправлено: цикл вместо прямого вызова _delay_us(us)
         while (us--) _delay_us(1);
     }
-
     void delayMilliseconds(uint32_t ms) override {
         while (ms--) _delay_ms(1);
     }
 
+    // ---- millis ----
     unsigned long millis() override {
-        return ::millis();
+        return getMillis();
     }
 
-    const char* getPlatformName() override {
-        return "AVR (direct register)";
-    }
-    void init() override {}
-
+    // ---- I2C и SPI (заглушки) ----
     void i2cInit(uint8_t address) override { (void)address; }
     void i2cWrite(uint8_t data) override { (void)data; }
     uint8_t i2cRead() override { return 0; }
@@ -61,7 +100,16 @@ public:
     void spiInit() override {}
     uint8_t spiTransfer(uint8_t data) override { (void)data; return 0; }
 
+    // ---- Утилиты ----
+    const char* getPlatformName() override {
+        return "AVR (ATmega1284)";
+    }
+    void init() override {
+        initMillisTimer();  // запускаем таймер для millis()
+    }
+
 private:
+    // ---- Маппинг пинов (ваша схема) ----
     volatile uint8_t* _getDdr(uint8_t pin) {
         if (pin >= 1 && pin <= 8)   return &DDRB;
         if (pin >= 14 && pin <= 21) return &DDRD;
