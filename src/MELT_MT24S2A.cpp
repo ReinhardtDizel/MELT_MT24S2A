@@ -2,7 +2,6 @@
 #include <string.h>
 #include <stdio.h>
 
-// ---- Конструкторы с внешним HAL ----
 MELT_MT24S2A::MELT_MT24S2A(LCD_HAL* hal, uint8_t rs, uint8_t rw, uint8_t enable,
                            uint8_t d0, uint8_t d1, uint8_t d2, uint8_t d3,
                            uint8_t d4, uint8_t d5, uint8_t d6, uint8_t d7)
@@ -29,62 +28,36 @@ MELT_MT24S2A::MELT_MT24S2A(LCD_HAL* hal, uint8_t i2c_address)
       _8bit_mode(false), _i2c_mode(true), _i2c_address(i2c_address)
 {}
 
-// Деструктор
 MELT_MT24S2A::~MELT_MT24S2A() {}
 
-// ---- Инициализация ----
 void MELT_MT24S2A::begin(uint8_t cols, uint8_t rows) {
     _cols = cols; _rows = rows;
 
-    if (_i2c_mode) {
-        _hal->i2cInit(_i2c_address);
-        _displayfunction = LCD_4BIT_MODE | LCD_2LINE | LCD_5x8_DOTS;
-    } else {
-        _hal->pinModeOutput(_rs_pin);
-        _hal->pinModeOutput(_rw_pin);
-        _hal->pinModeOutput(_enable_pin);
-        if (_8bit_mode) {
-            for (int i = 0; i < 8; i++) _hal->pinModeOutput(_data_pins[i]);
-            _displayfunction = LCD_8BIT_MODE | LCD_2LINE | LCD_5x8_DOTS;
-        } else {
-            for (int i = 4; i < 8; i++) _hal->pinModeOutput(_data_pins[i]);
-            _displayfunction = LCD_4BIT_MODE | LCD_2LINE | LCD_5x8_DOTS;
-        }
-    }
-
+    // ======= ТОЧНО КАК В РАБОЧЕМ ТЕСТЕ =======
+    // 1. Настройка пинов и установка в 0 (делает hal.init())
+    _hal->init();
+    
+    // 2. Ждём 50 мс
     _hal->delayMilliseconds(50);
-    if (!_i2c_mode) {
-        _hal->digitalWrite(_rs_pin, false);
-        _hal->digitalWrite(_rw_pin, false);
-        _hal->digitalWrite(_enable_pin, false);
-    }
-
-    // Инициализация согласно даташиту
-    if (_8bit_mode) {
-        command(LCD_FUNCTION_SET | _displayfunction);
-        _hal->delayMicroseconds(4500);
-        command(LCD_FUNCTION_SET | _displayfunction);
-        _hal->delayMicroseconds(150);
-        command(LCD_FUNCTION_SET | _displayfunction);
-    } else {
-        write4bits(0x03);
-        _hal->delayMicroseconds(4500);
-        write4bits(0x03);
-        _hal->delayMicroseconds(4500);
-        write4bits(0x03);
-        _hal->delayMicroseconds(150);
-        write4bits(0x02);
-    }
-
-    command(LCD_FUNCTION_SET | _displayfunction);
+    
+    // 3. Инициализация — один в один lcd_init() из теста
+    command(0x30); _hal->delayMicroseconds(40);
+    command(0x30); _hal->delayMicroseconds(40);
+    command(0x30); _hal->delayMicroseconds(40);
+    command(0x38); _hal->delayMilliseconds(5);
+    
     _displaycontrol = LCD_DISPLAY_ON | LCD_CURSOR_OFF | LCD_BLINK_OFF;
-    display();
-    clear();
+    command(LCD_DISPLAY_CONTROL | _displaycontrol);
+    _hal->delayMilliseconds(5);
+    
+    command(LCD_CLEAR_DISPLAY);
+    _hal->delayMilliseconds(2);
+    
     _displaymode = LCD_ENTRY_LEFT | LCD_ENTRY_SHIFT_DEC;
     command(LCD_ENTRY_MODE_SET | _displaymode);
+    _hal->delayMilliseconds(2);
 }
 
-// ---- Базовые методы ----
 void MELT_MT24S2A::clear() { command(LCD_CLEAR_DISPLAY); _hal->delayMilliseconds(2); }
 void MELT_MT24S2A::home()  { command(LCD_RETURN_HOME); _hal->delayMilliseconds(2); }
 
@@ -92,6 +65,7 @@ void MELT_MT24S2A::setCursor(uint8_t col, uint8_t row) {
     static const uint8_t row_offsets[] = {0x00, 0x40, 0x14, 0x54};
     if (row >= _rows) row = _rows - 1;
     command(LCD_SET_DDRAM_ADDR | (col + row_offsets[row]));
+    _hal->delayMicroseconds(50);
 }
 
 void MELT_MT24S2A::write(uint8_t c) { send(c, true); }
@@ -102,7 +76,6 @@ void MELT_MT24S2A::print(int number) {
     print(buf);
 }
 
-// ---- Управление дисплеем ----
 void MELT_MT24S2A::noDisplay()    { _displaycontrol &= ~LCD_DISPLAY_ON; command(LCD_DISPLAY_CONTROL | _displaycontrol); }
 void MELT_MT24S2A::display()      { _displaycontrol |= LCD_DISPLAY_ON;  command(LCD_DISPLAY_CONTROL | _displaycontrol); }
 void MELT_MT24S2A::noCursor()     { _displaycontrol &= ~LCD_CURSOR_ON; command(LCD_DISPLAY_CONTROL | _displaycontrol); }
@@ -122,35 +95,30 @@ void MELT_MT24S2A::createChar(uint8_t location, uint8_t charmap[8]) {
     for (int i = 0; i < 8; i++) write(charmap[i]);
 }
 
-// ---- Внутренние методы ----
 void MELT_MT24S2A::command(uint8_t cmd) { send(cmd, false); }
 
 void MELT_MT24S2A::send(uint8_t value, bool isData) {
-    if (_i2c_mode) {
-        uint8_t data = value;
-        if (isData) data |= 0x01;
-        _hal->i2cWrite(data);
-        return;
-    }
-
     _hal->digitalWrite(_rs_pin, isData);
-    _hal->digitalWrite(_rw_pin, false);          // всегда запись
-    if (_8bit_mode) {
-        for (int i = 0; i < 8; i++) {
-            _hal->digitalWrite(_data_pins[i], (value >> i) & 0x01);
-        }
-        pulseEnable();
-    } else {
-        write4bits(value >> 4);
-        write4bits(value & 0x0F);
-    }
+    _hal->digitalWrite(_rw_pin, false);
+    _hal->writeDataPort(value);
+    _hal->delayMicroseconds(1);
+    _hal->digitalWrite(_enable_pin, true);
+    _hal->delayMicroseconds(1);
+    _hal->digitalWrite(_enable_pin, false);
+    _hal->delayMicroseconds(100);
+    if (!isData && (value == 0x01 || value == 0x02))
+        _hal->delayMilliseconds(2);
+    else
+        _hal->delayMicroseconds(40);
 }
 
 void MELT_MT24S2A::write4bits(uint8_t value) {
-    for (int i = 0; i < 4; i++) {
-        _hal->digitalWrite(_data_pins[4 + i], (value >> i) & 0x01);
-    }
-    pulseEnable();
+    _hal->writeDataPort(value);
+    _hal->delayMicroseconds(1);
+    _hal->digitalWrite(_enable_pin, true);
+    _hal->delayMicroseconds(1);
+    _hal->digitalWrite(_enable_pin, false);
+    _hal->delayMicroseconds(100);
 }
 
 void MELT_MT24S2A::pulseEnable() {
@@ -162,9 +130,7 @@ void MELT_MT24S2A::pulseEnable() {
     _hal->delayMicroseconds(100);
 }
 
-// ---- Высокоуровневые методы ----
 uint8_t MELT_MT24S2A::utf8_to_hd44780(const char*& text) {
-    // Полная реализация, скопированная из вашей старой версии (без Arduino)
     uint8_t c = (uint8_t)*text;
     if (c < 0x80) { text++; return c; }
     if (c == 0xD0 || c == 0xD1) {
